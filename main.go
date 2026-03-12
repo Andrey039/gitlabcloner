@@ -42,7 +42,13 @@ func prompt(label, defaultVal string) string {
 	} else {
 		fmt.Printf("%s: ", label)
 	}
-	stdinScanner.Scan()
+	if !stdinScanner.Scan() {
+		if err := stdinScanner.Err(); err != nil {
+			fmt.Fprintf(os.Stderr, "Ошибка чтения stdin: %v\n", err)
+			os.Exit(1)
+		}
+		return defaultVal
+	}
 	val := strings.TrimSpace(stdinScanner.Text())
 	if val == "" {
 		return defaultVal
@@ -72,7 +78,7 @@ func envWithDefault(envKey, fallback string) string {
 	return fallback
 }
 
-func init() {
+func configure() {
 	defaultCloneDir, _ := os.Getwd()
 
 	gitlabURL := strings.TrimRight(prompt("GitLab URL", envWithDefault("GITLAB_CLONER_URL", "https://gitlab.com")), "/")
@@ -85,9 +91,9 @@ func init() {
 	privateToken = promptSecret("Token", envWithDefault("GITLAB_CLONER_TOKEN", ""))
 
 	groupID = prompt("Group ID", envWithDefault("GITLAB_CLONER_GROUP_ID", ""))
-	cloneDir = prompt("Clone dir", envWithDefault("GITLAB_CLONER_DIR", defaultCloneDir))
 	sslVerifyStr := prompt("SSL verify (true/false)", envWithDefault("GITLAB_CLONER_SSL_VERIFY", "true"))
 	sslVerify = strings.ToLower(sslVerifyStr) != "false"
+	cloneDir = prompt("Clone dir", envWithDefault("GITLAB_CLONER_DIR", defaultCloneDir))
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if !sslVerify {
@@ -127,8 +133,9 @@ func paginate[T any](firstURL string, params map[string]string) ([]T, error) {
 			return nil, fmt.Errorf("GET %s: %w", currentURL, err)
 		}
 		if resp.StatusCode >= 300 {
+			errBody, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			return nil, fmt.Errorf("GET %s: HTTP %d", currentURL, resp.StatusCode)
+			return nil, fmt.Errorf("GET %s: HTTP %d: %s", currentURL, resp.StatusCode, strings.TrimSpace(string(errBody)))
 		}
 		body, err := io.ReadAll(resp.Body)
 		resp.Body.Close()
@@ -173,7 +180,8 @@ func getGroupInfo(id string) (*Group, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("GET groups/%s: HTTP %d", id, resp.StatusCode)
+		errBody, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("GET groups/%s: HTTP %d: %s", id, resp.StatusCode, strings.TrimSpace(string(errBody)))
 	}
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -197,10 +205,10 @@ func getSubgroups(groupID string) ([]Group, error) {
 	)
 }
 
-func cloneRepository(repoURL, clonePath string) {
+func cloneRepository(repoURL, clonePath string) error {
 	if _, err := os.Stat(filepath.Join(clonePath, ".git")); err == nil {
 		fmt.Printf("[skip] уже склонирован: %s\n", clonePath)
-		return
+		return nil
 	}
 	authURL := strings.Replace(repoURL, "https://", fmt.Sprintf("https://oauth2:%s@", privateToken), 1)
 	cmd := exec.Command("git", "clone", authURL, clonePath)
@@ -212,8 +220,9 @@ func cloneRepository(repoURL, clonePath string) {
 	}
 	cmd.Env = env
 	if err := cmd.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "[error] clone %s: %v\n", clonePath, err)
+		return fmt.Errorf("clone %s: %w", clonePath, err)
 	}
+	return nil
 }
 
 func cloneGroupProjects(groupID, parentDir, accumulatedPath string) error {
@@ -222,12 +231,14 @@ func cloneGroupProjects(groupID, parentDir, accumulatedPath string) error {
 		return fmt.Errorf("projects in group %s: %w", groupID, err)
 	}
 	for _, p := range projects {
-		relPath := strings.Replace(p.PathWithNamespace, accumulatedPath+"/", "", 1)
+		relPath := strings.TrimPrefix(p.PathWithNamespace, accumulatedPath+"/")
 		clonePath := filepath.Join(parentDir, relPath)
 		if err := os.MkdirAll(clonePath, 0o755); err != nil {
 			return err
 		}
-		cloneRepository(p.HTTPURLToRepo, clonePath)
+		if err := cloneRepository(p.HTTPURLToRepo, clonePath); err != nil {
+			fmt.Fprintf(os.Stderr, "[error] %v\n", err)
+		}
 	}
 
 	subgroups, err := getSubgroups(groupID)
@@ -235,7 +246,7 @@ func cloneGroupProjects(groupID, parentDir, accumulatedPath string) error {
 		return fmt.Errorf("subgroups of %s: %w", groupID, err)
 	}
 	for _, sg := range subgroups {
-		relPath := strings.Replace(sg.FullPath, accumulatedPath+"/", "", 1)
+		relPath := strings.TrimPrefix(sg.FullPath, accumulatedPath+"/")
 		subDir := filepath.Join(parentDir, relPath)
 		if err := os.MkdirAll(subDir, 0o755); err != nil {
 			return err
@@ -248,6 +259,8 @@ func cloneGroupProjects(groupID, parentDir, accumulatedPath string) error {
 }
 
 func main() {
+	configure()
+
 	if privateToken == "" || groupID == "" {
 		fmt.Fprintln(os.Stderr, "PRIVATE_TOKEN и GROUP_ID обязательны")
 		os.Exit(1)
