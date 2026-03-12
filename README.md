@@ -1,5 +1,9 @@
 # gitlabcloner
 
+> ⚠️ **This utility was written using vibe coding — AI-assisted development without deep manual code review. Use at your own risk.**
+>
+> ⚠️ **Эта утилита написана с помощью вайбкодинга — разработка с помощью ИИ без глубокого ручного ревью кода. Используйте на свой страх и риск.**
+
 Go-утилита для рекурсивного клонирования всех репозиториев GitLab-группы (включая подгруппы).
 
 ## Требования
