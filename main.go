@@ -205,20 +205,35 @@ func getSubgroups(groupID string) ([]Group, error) {
 	)
 }
 
+func gitEnv() []string {
+	env := os.Environ()
+	if !sslVerify {
+		env = append(env, "GIT_SSL_NO_VERIFY=true")
+	}
+	return env
+}
+
+func pullRepository(clonePath string) error {
+	fmt.Printf("[pull] %s\n", clonePath)
+	cmd := exec.Command("git", "-C", clonePath, "pull", "--ff-only")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Env = gitEnv()
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pull %s: %w", clonePath, err)
+	}
+	return nil
+}
+
 func cloneRepository(repoURL, clonePath string) error {
 	if _, err := os.Stat(filepath.Join(clonePath, ".git")); err == nil {
-		fmt.Printf("[skip] уже склонирован: %s\n", clonePath)
-		return nil
+		return pullRepository(clonePath)
 	}
 	authURL := strings.Replace(repoURL, "https://", fmt.Sprintf("https://oauth2:%s@", privateToken), 1)
 	cmd := exec.Command("git", "clone", authURL, clonePath)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	env := os.Environ()
-	if !sslVerify {
-		env = append(env, "GIT_SSL_NO_VERIFY=true")
-	}
-	cmd.Env = env
+	cmd.Env = gitEnv()
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("clone %s: %w", clonePath, err)
 	}
