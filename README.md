@@ -70,7 +70,7 @@ export GITLAB_CLONER_ORIGIN_PROTO=ssh
 | `GITLAB_CLONER_GROUP_ID` | ID группы | — |
 | `GITLAB_CLONER_DIR` | Директория для клонирования | `.` (текущая) |
 | `GITLAB_CLONER_SSL_VERIFY` | Проверка SSL-сертификата | `true` |
-|| `GITLAB_CLONER_ORIGIN_PROTO` | Протокол origin: `ssh` или `https` | `ssh` |
+| `GITLAB_CLONER_ORIGIN_PROTO` | Протокол origin: `ssh` или `https` | `ssh` |
 
 ## Поведение
 
