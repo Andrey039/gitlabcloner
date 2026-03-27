@@ -37,10 +37,11 @@ go build -o gitlabcloner .
 ```
 GitLab URL [https://gitlab.com]: 
 GitLab API path [/api/v4]: 
-GitLab private token: 
-GitLab group ID: 123
-Clone directory [.]: /path/to/dir
-Verify SSL [true]: 
+Token: 
+Group ID: 123
+SSL verify (true/false) [true]: 
+Clone dir [.]: /path/to/dir
+Origin protocol (ssh/https) [ssh]: 
 ```
 
 ### Через переменные окружения
@@ -52,6 +53,7 @@ export GITLAB_CLONER_TOKEN=glpat-xxxxxxxxxxxx
 export GITLAB_CLONER_GROUP_ID=123
 export GITLAB_CLONER_DIR=/path/to/dir
 export GITLAB_CLONER_SSL_VERIFY=true
+export GITLAB_CLONER_ORIGIN_PROTO=ssh
 
 ./gitlabcloner
 ```
@@ -68,10 +70,11 @@ export GITLAB_CLONER_SSL_VERIFY=true
 | `GITLAB_CLONER_GROUP_ID` | ID группы | — |
 | `GITLAB_CLONER_DIR` | Директория для клонирования | `.` (текущая) |
 | `GITLAB_CLONER_SSL_VERIFY` | Проверка SSL-сертификата | `true` |
+|| `GITLAB_CLONER_ORIGIN_PROTO` | Протокол origin: `ssh` или `https` | `ssh` |
 
 ## Поведение
 
 - Рекурсивно обходит группу и все подгруппы.
 - Сохраняет структуру директорий по `path_with_namespace`.
 - Уже склонированные репозитории обновляются через `git pull --ff-only`.
-- Для клонирования использует `https://oauth2:<token>@<repo_url>`.
+- Клонирование выполняется через HTTPS с токеном; после клона origin заменяется на SSH (или чистый HTTPS без токена) — токен не сохраняется в `.git/config`.
