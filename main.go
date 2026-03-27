@@ -19,6 +19,7 @@ import (
 type Project struct {
 	PathWithNamespace string `json:"path_with_namespace"`
 	HTTPURLToRepo     string `json:"http_url_to_repo"`
+	SSHURLToRepo      string `json:"ssh_url_to_repo"`
 }
 
 type Group struct {
@@ -27,13 +28,14 @@ type Group struct {
 }
 
 var (
-	gitlabAPIURL string
-	privateToken string
-	groupID      string
-	cloneDir     string
-	sslVerify    bool
-	httpClient   *http.Client
-	stdinScanner = bufio.NewScanner(os.Stdin)
+	gitlabAPIURL    string
+	privateToken    string
+	groupID         string
+	cloneDir        string
+	sslVerify       bool
+	originProtocol  string
+	httpClient      *http.Client
+	stdinScanner    = bufio.NewScanner(os.Stdin)
 )
 
 func prompt(label, defaultVal string) string {
@@ -94,6 +96,7 @@ func configure() {
 	sslVerifyStr := prompt("SSL verify (true/false)", envWithDefault("GITLAB_CLONER_SSL_VERIFY", "true"))
 	sslVerify = strings.ToLower(sslVerifyStr) != "false"
 	cloneDir = prompt("Clone dir", envWithDefault("GITLAB_CLONER_DIR", defaultCloneDir))
+	originProtocol = strings.ToLower(prompt("Origin protocol (ssh/https)", envWithDefault("GITLAB_CLONER_ORIGIN_PROTO", "ssh")))
 
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	if !sslVerify {
@@ -225,7 +228,7 @@ func pullRepository(clonePath string) error {
 	return nil
 }
 
-func cloneRepository(repoURL, clonePath string) error {
+func cloneRepository(repoURL, clonePath, originURL string) error {
 	if _, err := os.Stat(filepath.Join(clonePath, ".git")); err == nil {
 		return pullRepository(clonePath)
 	}
@@ -236,6 +239,13 @@ func cloneRepository(repoURL, clonePath string) error {
 	cmd.Env = gitEnv()
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("clone %s: %w", clonePath, err)
+	}
+	if originURL != "" && originURL != repoURL {
+		setURL := exec.Command("git", "-C", clonePath, "remote", "set-url", "origin", originURL)
+		setURL.Env = gitEnv()
+		if err := setURL.Run(); err != nil {
+			return fmt.Errorf("set-url origin %s: %w", clonePath, err)
+		}
 	}
 	return nil
 }
@@ -251,7 +261,11 @@ func cloneGroupProjects(groupID, parentDir, accumulatedPath string) error {
 		if err := os.MkdirAll(clonePath, 0o755); err != nil {
 			return err
 		}
-		if err := cloneRepository(p.HTTPURLToRepo, clonePath); err != nil {
+		originURL := p.SSHURLToRepo
+		if originProtocol == "https" {
+			originURL = p.HTTPURLToRepo
+		}
+		if err := cloneRepository(p.HTTPURLToRepo, clonePath, originURL); err != nil {
 			fmt.Fprintf(os.Stderr, "[error] %v\n", err)
 		}
 	}
