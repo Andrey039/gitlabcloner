@@ -31,18 +31,18 @@ type Group struct {
 }
 
 var (
-	gitlabAPIURL    string
-	privateToken    string
-	groupID         string
-	cloneDir        string
-	sslVerify       bool
-	originProtocol  string
-	cloneArchived    bool
-	fullClone                bool
-	checkoutDefaultBranch    bool
-	excludeIDs               map[int]struct{}
-	httpClient      *http.Client
-	stdinScanner    = bufio.NewScanner(os.Stdin)
+	gitlabAPIURL          string
+	privateToken          string
+	groupID               string
+	cloneDir              string
+	sslVerify             bool
+	originProtocol        string
+	cloneArchived         bool
+	fullClone             bool
+	checkoutDefaultBranch bool
+	excludeIDs            map[int]struct{}
+	httpClient            *http.Client
+	stdinScanner          = bufio.NewScanner(os.Stdin)
 )
 
 func prompt(label, defaultVal string) string {
@@ -140,7 +140,6 @@ func configure() {
 	fmt.Fprintf(os.Stderr, "[debug] API base URL: %s\n", gitlabAPIURL)
 	fmt.Fprintf(os.Stderr, "[debug] Group ID: %s\n", groupID)
 }
-
 
 func apiGet(rawURL string, params map[string]string) (*http.Response, error) {
 	u, err := url.Parse(rawURL)

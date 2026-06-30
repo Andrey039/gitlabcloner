@@ -1,9 +1,22 @@
 # Changelog
 
+## v0.9
+
+### Улучшения
+- README дополнен документацией по опциям `Clone archived repos`, `Full clone`, `Checkout default branch before pull` — интерактивный пример, переменные окружения, поведение
+- Поправлено форматирование выравнивания переменных в блоке `var` (`main.go`)
+
+## v0.8
+
+### Добавлено
+- опция `Checkout default branch before pull` / `GITLAB_CLONER_CHECKOUT_DEFAULT_BRANCH` — автоматический checkout на ветку по умолчанию (main/master/develop) перед `git pull --ff-only`
+
 ## v0.7
 
 ### Добавлено
 - пропуск архивированных проектов и клонирование репо только с последним коммитом
+- опция `Full clone` / `GITLAB_CLONE_FULL` — полное клонирование вместо shallow clone (depth=1)
+- опция `Clone archived repos` / `GITLAB_CLONE_ARCHIVED` — клонирование архивированных проектов
 
 ## v0.6
 
